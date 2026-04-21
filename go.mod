@@ -2,7 +2,10 @@ module github.com/Umarxon80/Fiber.git
 
 go 1.25.5
 
-require github.com/gofiber/fiber/v3 v3.1.0
+require (
+	github.com/gofiber/fiber/v3 v3.1.0
+	golang.org/x/exp v0.0.0-20260410095643-746e56fc9e2f
+)
 
 require (
 	github.com/andybalholm/brotli v1.2.0 // indirect
