@@ -1,46 +1,63 @@
 package main
 
 import (
-    "log"
-    "github.com/gofiber/fiber/v3"
 	"github.com/Umarxon80/Fiber.git/db"
+	"github.com/Umarxon80/Fiber.git/logger"
+	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/log"
 )
 
 func main() {
-    app := fiber.New(fiber.Config{
+	log.SetOutput(logger.Logger()) // logger set up
+
+	app := fiber.New(fiber.Config{
 		AppName: "Fiber",
 	})
 
 	// Get
-    app.Get("/", func (c fiber.Ctx) error {
-        return c.JSON(db.Get())
-    })
+	app.Get("/", func(c fiber.Ctx) error {
+		log.Info("Products are shown")
+		return c.JSON(db.Get())
+	})
 
 	// Post
-	app.Post("/", func (c fiber.Ctx) error {
+	app.Post("/", func(c fiber.Ctx) error {
 		var p db.Product
-		if err:=c.Bind().JSON(&p);err!=nil {
+		if err := c.Bind().JSON(&p); err != nil {
 			return err
 		}
 
-        return c.JSON(db.Add(p))
-    })
+		log.Info("Product is added")
+		return c.JSON(db.Add(p))
+	})
 
 	// Patch
-	app.Patch("/:id", func (c fiber.Ctx) error {
-		id:=fiber.Params[int](c,"id")
+	app.Patch("/:id", func(c fiber.Ctx) error {
+		id := fiber.Params[int](c, "id")
 		var p db.Product
-		if err:=c.Bind().JSON(&p);err!=nil {
+		if err := c.Bind().JSON(&p); err != nil {
+			log.Errorf("Wrong input: %s", c.Body())
 			return err
 		}
-        return c.JSON(db.Putch(p,id))
-    })
+
+		pr, err := db.Patch(p, id)
+		if err != nil {
+			log.Errorf("Wrong input %v ", err)
+			return err
+		}
+		return c.JSON(pr)
+	})
 
 	// Delete
-	app.Delete("/:id", func (c fiber.Ctx) error {
-		id:=fiber.Params[int](c,"id")
-		return c.JSON(db.Delete(int(id)))
-    })
+	app.Delete("/:id", func(c fiber.Ctx) error {
+		id := fiber.Params[int](c, "id")
 
-    log.Fatal(app.Listen(":8080"))
+		if err := db.Delete(id); err != nil {
+			log.Errorf("Wrong input %v ", err)
+			return err
+		}
+		return c.SendString("Product is deleted")
+	})
+
+	log.Fatal(app.Listen(":8080"))
 }

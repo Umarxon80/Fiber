@@ -1,10 +1,14 @@
 package db
 
-import "golang.org/x/exp/slices"
+import (
+	"errors"
+	"github.com/gofiber/fiber/v3/log"
+	"golang.org/x/exp/slices"
+)
 
 var db []Product
-var id_count int = 1
-
+var idCount int = 1
+var ErrNotFound = errors.New("product not found")
 type Product struct {
 	Id      int    `json:"id"`
 	Name    string `json:"name"`
@@ -14,15 +18,17 @@ type Product struct {
 }
 
 func Add(p Product) Product{
-	p.Id = id_count
-	id_count++
+	p.Id = idCount
+	idCount++
 	db = append(db, p)
+	log.Infof("Product created: id=%d", p.Id)
 	return p
 }
 func Get() []Product {
+	log.Debugf("Returning all products")
 	return db
 }
-func Putch(p Product, id int) Product{
+func Patch(p Product, id int) (Product,error){
 	for i := range db {
 		if id == db[i].Id {
 			if p.Name!="" {
@@ -37,18 +43,21 @@ func Putch(p Product, id int) Product{
 			if p.ExpDate!="" {
 				db[i].ExpDate=p.ExpDate
 			}
-			return db[i]
+			log.Infof("Product with id: %d updated", id)
+			return db[i], nil
 		}
 	}
-	return Product{}                      
+	log.Warnf("DB: product not found id: %d",id)
+	return Product{}, ErrNotFound                 
 }
 
-func Delete(id int) []Product {
+func Delete(id int) error {
 	for i := range db {
 		if id == db[i].Id {
 			db=slices.Delete(db, i, i+1)
-			return db
+			log.Infof("Product with id: %d deleted", id)
+			return nil
 		}
 	}
-	return db
+	return ErrNotFound 
 }
