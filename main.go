@@ -16,56 +16,16 @@ func main() {
 	cacheMiddleware := cache.New(cache.Config{ // caching
 		Expiration: 10 * time.Second,
 	})
+	// db connection
+	db.ConnectDb()
+	db.Migrate()
 
-	app := fiber.New(fiber.Config{
-		AppName: "Fiber",
-	})
+	app := fiber.New(fiber.Config{AppName: "Fiber"})
 
-	// Get
-	app.Get("/", compress.New(), cacheMiddleware, func(c fiber.Ctx) error {
-		log.Info("Products are shown")
-		return c.JSON(db.Get())
-	})
-
-	// Post
-	app.Post("/", func(c fiber.Ctx) error {
-		var p db.Product
-		if err := c.Bind().JSON(&p); err != nil {
-			log.Errorf("Wrong input: %v", err)
-			return err
-		}
-
-		log.Info("Product is added")
-		return c.JSON(db.Add(p))
-	})
-
-	// Patch
-	app.Patch("/:id", func(c fiber.Ctx) error {
-		id := fiber.Params[int](c, "id")
-		var p db.Product
-		if err := c.Bind().JSON(&p); err != nil {
-			log.Errorf("Wrong input: %v", err)
-			return err
-		}
-
-		pr, err := db.Patch(p, id)
-		if err != nil {
-			log.Errorf("Wrong input %v ", err)
-			return err
-		}
-		return c.JSON(pr)
-	})
-
-	// Delete
-	app.Delete("/:id", func(c fiber.Ctx) error {
-		id := fiber.Params[int](c, "id")
-
-		if err := db.Delete(id); err != nil {
-			log.Errorf("Wrong input %v ", err)
-			return err
-		}
-		return c.SendString("Product is deleted")
-	})
-
+	app.Get("/", compress.New(), cacheMiddleware, db.Get)
+	app.Get("/:id", db.GetOne)
+	app.Post("/", db.Add)
+	app.Patch("/:id", db.Patch)
+	app.Delete("/:id", db.Delete)
 	log.Fatal(app.Listen(":8080"))
 }
