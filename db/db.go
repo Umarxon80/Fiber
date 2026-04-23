@@ -17,11 +17,11 @@ type Product struct {
 	ExpDate string `json:"exp_date"`
 }
 
-var db *gorm.DB
+var Db *gorm.DB
 
 func ConnectDb() {
 	var err error
-	db, err = gorm.Open(postgres.Open("host=localhost user=postgres dbname=fiber password=1234 sslmode=disable"), &gorm.Config{
+	Db, err = gorm.Open(postgres.Open("host=localhost user=postgres dbname=fiber password=1234 sslmode=disable"), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Error),
 		NamingStrategy: schema.NamingStrategy{
 			SingularTable: true,
@@ -34,7 +34,7 @@ func ConnectDb() {
 	log.Debug("Connected to DB")
 }
 func Migrate() {
-	db.AutoMigrate(&Product{})
+	Db.AutoMigrate(&Product{})
 }
 
 func Add(ctx fiber.Ctx) error {
@@ -50,20 +50,20 @@ func Add(ctx fiber.Ctx) error {
 		})
 	}
 
-	db.Create(&product)
+	Db.Create(&product)
 	log.Info("New product crated id: ", product.Id)
 	return ctx.JSON(product)
 }
 func Get(ctx fiber.Ctx) error {
 	var products []Product
-	db.Find(&products)
+	Db.Find(&products)
 	log.Info("Returning all Products")
 	return ctx.JSON(products)
 }
 func GetOne(ctx fiber.Ctx) error {
 	id := ctx.Params("id")
 	var product Product
-	if err := db.First(&product, id).Error; err != nil {
+	if err := Db.First(&product, id).Error; err != nil {
 		log.Error("Wrong input")
 		return ctx.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"error": "Product not found",
@@ -81,7 +81,7 @@ func Patch(ctx fiber.Ctx) error {
 			"error": "Empty input",
 		})
 	}
-	db.Model(&Product{}).Where("id=?", id).Updates(Product{
+	Db.Model(&Product{}).Where("id=?", id).Updates(Product{
 		Name:    body.Name,
 		Price:   body.Price,
 		Desc:    body.Desc,
@@ -93,7 +93,7 @@ func Patch(ctx fiber.Ctx) error {
 	})
 }
 func Delete(ctx fiber.Ctx) error {
-	result := db.Delete(&Product{}, ctx.Params("id"))
+	result := Db.Delete(&Product{}, ctx.Params("id"))
 
 	if result.RowsAffected == 0 {
 		log.Error("Wrong input")
