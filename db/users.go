@@ -10,7 +10,7 @@ type User struct {
 	Id           uint   `json:"id"`
 	First_name   string `json:"first_name" validate:"required"`
 	Last_name    string `json:"last_name" validate:"required"`
-	Is_admin     bool   `json:"is_admin" default:"false"`
+	Role     string   `json:"role" default:"user"`
 	Email        string `json:"email" validate:"required,email"`
 	Phone_number string `json:"phone_number"`
 	Age          uint8  `json:"age" validate:"gte=1,lte=120"`
@@ -23,7 +23,7 @@ func createUserTable() error {
 		id SERIAL PRIMARY KEY,
 		first_name VARCHAR(255) NOT NULL,
 		last_name VARCHAR(255) NOT NULL,
-		is_admin BOOLEAN DEFAULT false,
+		role VARCHAR(255) DEFAULT 'user',
 		email VARCHAR(255),
 		phone_number VARCHAR(255),
 		age SMALLINT,
@@ -41,11 +41,11 @@ func CreateUser(ctx fiber.Ctx) error {
 	user = ctx.Locals("user").(User)
 	err := DbConnection.QueryRow(context.Background(), `
 		INSERT INTO users (
-			first_name, last_name, is_admin, email, phone_number, age, password
+			first_name, last_name, role, email, phone_number, age, password
 		) VALUES (
 			$1, $2, $3, $4, $5, $6, $7
 		) RETURNING id
-	`, user.First_name, user.Last_name, user.Is_admin, user.Email, user.Phone_number, user.Age, user.Password).Scan(&id)
+	`, user.First_name, user.Last_name, user.Role, user.Email, user.Phone_number, user.Age, user.Password).Scan(&id)
 	if err != nil {
 		log.Error("Error creating user ")
 		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -69,7 +69,7 @@ func GetUsers(ctx fiber.Ctx) error {
 	}
 	for rows.Next() {
 		var buffer User
-		err := rows.Scan(&buffer.Id, &buffer.First_name, &buffer.Last_name, &buffer.Is_admin, &buffer.Email, &buffer.Phone_number, &buffer.Age, &buffer.Password)
+		err := rows.Scan(&buffer.Id, &buffer.First_name, &buffer.Last_name, &buffer.Role, &buffer.Email, &buffer.Phone_number, &buffer.Age, &buffer.Password)
 		if err != nil {
 			log.Error("Error getting users, ", err)
 			return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -86,7 +86,7 @@ func GetOneUser(ctx fiber.Ctx) error {
 	var user User
 	err := DbConnection.QueryRow(context.Background(), `
 	SELECT * FROM users where id=$1
-	`, id).Scan(&user.Id, &user.First_name, &user.Last_name, &user.Is_admin, &user.Email, &user.Phone_number, &user.Age, &user.Password)
+	`, id).Scan(&user.Id, &user.First_name, &user.Last_name, &user.Role, &user.Email, &user.Phone_number, &user.Age, &user.Password)
 	if err != nil {
 		log.Error("Error getting user, ", err)
 		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -100,7 +100,7 @@ func GetUserByEmail(ctx fiber.Ctx, email string) (User, error) {
 	var user User
 	err := DbConnection.QueryRow(context.Background(), `
 	SELECT * FROM users where email=$1
-	`, email).Scan(&user.Id, &user.First_name, &user.Last_name, &user.Is_admin, &user.Email, &user.Phone_number, &user.Age, &user.Password)
+	`, email).Scan(&user.Id, &user.First_name, &user.Last_name, &user.Role, &user.Email, &user.Phone_number, &user.Age, &user.Password)
 	if err != nil {
 		log.Error("Error getting user, ", err)
 		return User{}, err
@@ -114,9 +114,9 @@ func PatchUser(ctx fiber.Ctx) error {
 
 	ch, err := DbConnection.Exec(context.Background(), `
 	UPDATE users
-	SET  first_name=$1, last_name=$2, is_admin=$3, email=$4, phone_number=$5, age=$6, password=$7
+	SET  first_name=$1, last_name=$2, role=$3, email=$4, phone_number=$5, age=$6, password=$7
 	WHERE id=$8
-	`, user.First_name, user.Last_name, user.Is_admin, user.Email, user.Phone_number, user.Age, user.Password, id)
+	`, user.First_name, user.Last_name, user.Role, user.Email, user.Phone_number, user.Age, user.Password, id)
 	if err != nil {
 		log.Error("Error updating user, ", err)
 		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
