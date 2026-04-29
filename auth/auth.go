@@ -30,7 +30,7 @@ func HashPassword(ctx fiber.Ctx) error {
 	if err := ctx.Bind().Body(&user); err != nil {
 		log.Error("Wrong input")
 		return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
-			"error": err,
+			"error": err.Error(),
 		})
 	}
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), 7)

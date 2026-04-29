@@ -10,11 +10,11 @@ type User struct {
 	Id           uint   `json:"id"`
 	First_name   string `json:"first_name" validate:"required"`
 	Last_name    string `json:"last_name" validate:"required"`
-	Is_admin     bool   `json:"is_admin" validate:"required"`
+	Is_admin     bool   `json:"is_admin" default:"false"`
 	Email        string `json:"email" validate:"required,email"`
 	Phone_number string `json:"phone_number"`
-	Age          uint8  `json:"age"`
-	Password     string `json:"password" validate:"min=8"`
+	Age          uint8  `json:"age" validate:"gte=1,lte=120"`
+	Password     string `json:"password" validate:"required,min=8"`
 }
 
 func createUserTable() error {
@@ -52,6 +52,7 @@ func CreateUser(ctx fiber.Ctx) error {
 			"error": err,
 		})
 	}
+	user.Id=uint(id)
 	log.Info("User created, id: ", id)
 	return ctx.Status(fiber.StatusCreated).JSON(user)
 }
@@ -147,7 +148,7 @@ func DeleteUser(ctx fiber.Ctx) error {
 	}
 	if ch.RowsAffected() < 1 {
 		log.Error("User not found id: ", id)
-		ctx.Status(fiber.StatusNotFound).JSON(fiber.Map{
+		return ctx.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"error": "Such user does not exists",
 		})
 	}

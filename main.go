@@ -6,6 +6,7 @@ import (
 	"github.com/Umarxon80/Fiber.git/auth"
 	"github.com/Umarxon80/Fiber.git/db"
 	costomLogger "github.com/Umarxon80/Fiber.git/logger"
+	"github.com/Umarxon80/Fiber.git/validation"
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/log"
 	"github.com/gofiber/fiber/v3/middleware/cache"
@@ -107,16 +108,16 @@ func main() {
 	productRouter := app.Group("/products")
 	productRouter.Get("/", compress.New(), cacheMiddleware, timeout.New(db.GetProducts, timeout.Config{Timeout: 1 * time.Minute}))
 	productRouter.Get("/:id", timeout.New(db.GetOneProduct, timeout.Config{Timeout: 1 * time.Minute}))
-	productRouter.Post("/", auth.RequreAuth, timeout.New(db.CreateProduct, timeout.Config{Timeout: 1 * time.Minute}))
-	productRouter.Patch("/:id", auth.RequreAuth, timeout.New(db.PatchProduct, timeout.Config{Timeout: 1 * time.Minute}))
+	productRouter.Post("/", auth.RequreAuth,validation.ValidateProductInput, timeout.New(db.CreateProduct, timeout.Config{Timeout: 1 * time.Minute}))
+	productRouter.Patch("/:id", auth.RequreAuth,validation.ValidateProductInput, timeout.New(db.PatchProduct, timeout.Config{Timeout: 1 * time.Minute}))
 	productRouter.Delete("/:id", auth.RequreAuth, timeout.New(db.DeleteProduct, timeout.Config{Timeout: 1 * time.Minute}))
 
 	// Users
 	userRouter := app.Group("/users")
 	userRouter.Get("/", compress.New(), cacheMiddleware, timeout.New(db.GetUsers, timeout.Config{Timeout: 1 * time.Minute}))
 	userRouter.Get("/:id", timeout.New(db.GetOneUser, timeout.Config{Timeout: 1 * time.Minute}))
-	userRouter.Post("/", auth.HashPassword, timeout.New(db.CreateUser, timeout.Config{Timeout: 1 * time.Minute}))
-	userRouter.Patch("/:id", auth.RequreAuth, auth.HashPassword, timeout.New(db.PatchUser, timeout.Config{Timeout: 1 * time.Minute}))
+	userRouter.Post("/",validation.ValidateUserInput, auth.HashPassword, timeout.New(db.CreateUser, timeout.Config{Timeout: 1 * time.Minute}))
+	userRouter.Patch("/:id", auth.RequreAuth,validation.ValidateUserInput, auth.HashPassword, timeout.New(db.PatchUser, timeout.Config{Timeout: 1 * time.Minute}))
 	userRouter.Delete("/:id", auth.RequreAuth, timeout.New(db.DeleteUser, timeout.Config{Timeout: 1 * time.Minute}))
 
 	//Auth

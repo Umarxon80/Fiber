@@ -36,6 +36,7 @@ func LogIn(ctx fiber.Ctx) error {
 	}
 	s := session.FromContext(ctx)
 	s.Set("authenticated", true)
+	s.Set("is_admin",user.Is_admin)
 	log.Info("User logged in, id: ", user.Id)
 	return ctx.SendString("loged in")
 }
