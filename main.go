@@ -89,29 +89,41 @@ func main() {
 
 	// session
 	app.Use(session.New(session.Config{
-		IdleTimeout:     30 * time.Minute,
+		IdleTimeout:     5 * time.Hour,
 		AbsoluteTimeout: 24 * time.Hour,
 		CookieSecure:    true,
 		CookieHTTPOnly:  true,
 		CookieSameSite:  "Lax",
 	}))
-	app.Post("/login", func(ctx fiber.Ctx) error {
-		s := session.FromContext(ctx)
-		s.Set("authenticated", true)
-		return ctx.SendString("loged in")
-	})
 
 	// healthcheck
 	app.Get(healthcheck.LivenessEndpoint, healthcheck.New())
 	app.Get(healthcheck.ReadinessEndpoint, healthcheck.New())
 	app.Get(healthcheck.StartupEndpoint, healthcheck.New())
 
-	// handlers
-	app.Get("/", compress.New(), cacheMiddleware, timeout.New(db.GetProducts, timeout.Config{Timeout: 1 * time.Minute}))
-	app.Get("/:id", db.GetOneProduct)
-	app.Post("/", auth.RequreAuth, db.CreateProduct)
-	app.Patch("/:id", auth.RequreAuth, db.PatchProduct)
-	app.Delete("/:id", auth.RequreAuth, db.DeleteProduct)
+	// //  Handlers
+
+	//Products
+	productRouter := app.Group("/products")
+	productRouter.Get("/", compress.New(), cacheMiddleware, timeout.New(db.GetProducts, timeout.Config{Timeout: 1 * time.Minute}))
+	productRouter.Get("/:id", timeout.New(db.GetOneProduct, timeout.Config{Timeout: 1 * time.Minute}))
+	productRouter.Post("/", auth.RequreAuth, timeout.New(db.CreateProduct, timeout.Config{Timeout: 1 * time.Minute}))
+	productRouter.Patch("/:id", auth.RequreAuth, timeout.New(db.PatchProduct, timeout.Config{Timeout: 1 * time.Minute}))
+	productRouter.Delete("/:id", auth.RequreAuth, timeout.New(db.DeleteProduct, timeout.Config{Timeout: 1 * time.Minute}))
+
+	// Users
+	userRouter := app.Group("/users")
+	userRouter.Get("/", compress.New(), cacheMiddleware, timeout.New(db.GetUsers, timeout.Config{Timeout: 1 * time.Minute}))
+	userRouter.Get("/:id", timeout.New(db.GetOneUser, timeout.Config{Timeout: 1 * time.Minute}))
+	userRouter.Post("/", auth.HashPassword, timeout.New(db.CreateUser, timeout.Config{Timeout: 1 * time.Minute}))
+	userRouter.Patch("/:id", auth.RequreAuth, auth.HashPassword, timeout.New(db.PatchUser, timeout.Config{Timeout: 1 * time.Minute}))
+	userRouter.Delete("/:id", auth.RequreAuth, timeout.New(db.DeleteUser, timeout.Config{Timeout: 1 * time.Minute}))
+
+	//Auth
+	userRouter.Post("/login", auth.LogIn)
+	userRouter.Post("/logout", auth.LogOut)
+
+	// Starting application
 	log.Fatal(app.Listen(":8080"))
-	
+
 }
