@@ -1,106 +1,140 @@
 package db
 
 import (
+	"context"
+
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/log"
-	"gorm.io/driver/postgres"
-	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
-	"gorm.io/gorm/schema"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type Product struct {
-	Id      int    `json:"id" gorm:"primaryKey"`
+	Id      int    `json:"id"`
 	Name    string `json:"name"`
 	Desc    string `json:"desc"`
 	Price   int    `json:"price"`
 	ExpDate string `json:"exp_date"`
 }
 
-var Db *gorm.DB
+var DbConnection *pgxpool.Pool
 
-func ConnectDb() {
+func Connect() {
 	var err error
-	Db, err = gorm.Open(postgres.Open("host=localhost user=postgres dbname=fiber password=1234 sslmode=disable"), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Error),
-		NamingStrategy: schema.NamingStrategy{
-			SingularTable: true,
-		},
-		PrepareStmt: true,
-	})
+	DbConnection, err = pgxpool.New(context.Background(), "postgres://postgres:1234@localhost:5432/fiber?sslmode=disable")
 	if err != nil {
-		log.Fatal("Failed to connect to DB")
+		log.Fatalf("Error connecting db: %v", err)
 	}
-	log.Debug("Connected to DB")
+	if err := createProductTable(context.Background()); err != nil {
+		log.Fatalf("Error creating table: %v", err)
+	}
+	defer DbConnection.Close()
 }
-func Migrate() {
-	Db.AutoMigrate(&Product{})
+func createProductTable(ctx context.Context) error {
+	_, err := DbConnection.Exec(ctx, `
+        CREATE TABLE IF NOT EXISTS products (
+            id       SERIAL PRIMARY KEY,
+            name     TEXT           NOT NULL,
+            "description"     TEXT,
+            price    NUMERIC(10, 2) NOT NULL,
+            exp_date DATE
+        )
+    `)
+	return err
 }
 
-func Add(ctx fiber.Ctx) error {
-	var product Product
-	if err := ctx.Bind().Body(&product); err != nil {
+// // PRODUCT CRUD
+func CreateProduct(ctx fiber.Ctx) error {
+	var newProd Product
+	if err := ctx.Bind().Body(&newProd); err != nil {
 		log.Error("Wrong input")
 		return err
 	}
-	if product.Name == "" && product.Price < 0 {
-		log.Error("Wrong input")
-		return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
-			"error": "invalid input",
-		})
+	err := DbConnection.QueryRow(context.Background(), `
+		INSERT INTO product (name, description, price, exp_date)
+		VALUES ($1, $2, $3, $4)
+		RETURNING id, name, description, price, exp_date
+	`, newProd.Name, newProd.Desc, newProd.Price, newProd.ExpDate).Scan(&newProd.Id, &newProd.Name, &newProd.Desc, &newProd.Price, &newProd.ExpDate)
+	if err != nil {
+		log.Fatal(err)
 	}
-
-	Db.Create(&product)
-	log.Info("New product crated id: ", product.Id)
-	return ctx.JSON(product)
+	log.Info("New product crated id: ", newProd.Id)
+	return ctx.Status(fiber.StatusCreated).JSON(newProd)
 }
-func Get(ctx fiber.Ctx) error {
+func GetProducts(ctx fiber.Ctx) error {
 	var products []Product
-	Db.Find(&products)
-	log.Info("Returning all Products")
+
+	rows, err := DbConnection.Query(context.Background(), `SELECT * FROM product`)
+	if err != nil {
+		log.Errorf("Error getting all products %v ", err)
+		return err
+	}
+	for rows.Next() {
+		var buff Product
+		err := rows.Scan(&buff.Id, &buff.Name, &buff.Desc, &buff.Price, &buff.ExpDate)
+		if err != nil {
+			log.Errorf("Error getting all products %v ", err)
+			return err
+		}
+		products = append(products, buff)
+	}
+	log.Info("Returning all products")
 	return ctx.JSON(products)
 }
-func GetOne(ctx fiber.Ctx) error {
+func GetOneProduct(ctx fiber.Ctx) error {
 	id := ctx.Params("id")
-	var product Product
-	if err := Db.First(&product, id).Error; err != nil {
-		log.Error("Wrong input")
-		return ctx.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"error": "Product not found",
-		})
+	var pr Product
+	if err := DbConnection.QueryRow(context.Background(), `SELECT * FROM product where id=$1`, id).Scan(&pr.Id, &pr.Name, &pr.Desc, &pr.Price, &pr.ExpDate); err != nil {
+		log.Errorf("Wrong input; %v", err)
 	}
-	log.Info("Returning one product, id: ", product.Id)
-	return ctx.JSON(product)
+	log.Info("Returning one product, id: ", pr.Id)
+	return ctx.JSON(pr)
 }
-func Patch(ctx fiber.Ctx) error {
+func PatchProduct(ctx fiber.Ctx) error {
+	var product Product
 	id := ctx.Params("id")
-	var body Product
-	if err := ctx.Bind().Body(&body); err != nil {
+	if err := ctx.Bind().Body(&product); err != nil {
 		log.Error("Wrong input")
 		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Empty input",
+			"error": "Wrong input",
 		})
 	}
-	Db.Model(&Product{}).Where("id=?", id).Updates(Product{
-		Name:    body.Name,
-		Price:   body.Price,
-		Desc:    body.Desc,
-		ExpDate: body.ExpDate,
-	})
+	efRows, err := DbConnection.Exec(context.Background(), `
+        UPDATE product 
+		set name=$1, description=$2, price=$3, exp_date=$4
+        WHERE id=$5
+        RETURNING id, name, description, price, exp_date
+    `, product.Name, product.Desc, product.Price, product.ExpDate, id)
+	if efRows.RowsAffected() < 1 {
+		log.Warn("Not found, id: ", id)
+		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Not found",
+		})
+	}
+	if err != nil {
+		log.Fatal(err)
+	}
 	log.Info("Product updated, id: ", id)
 	return ctx.JSON(fiber.Map{
 		"Product updated, id: ": id,
 	})
 }
-func Delete(ctx fiber.Ctx) error {
-	result := Db.Delete(&Product{}, ctx.Params("id"))
-
-	if result.RowsAffected == 0 {
-		log.Error("Wrong input")
-		return ctx.Status(404).JSON(fiber.Map{
-			"error": "not found",
+func DeleteProduct(ctx fiber.Ctx) error {
+	id := ctx.Params("id")
+	ct, err := DbConnection.Exec(context.Background(), `
+        DELETE FROM product 
+        WHERE id=$1
+    `, id)
+	if err != nil {
+		log.Error("Error deleting product, ", err)
+		return err
+	}
+	if ct.RowsAffected() < 1 {
+		log.Fatal("Product with this id does not exists")
+		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Not found",
 		})
 	}
-	log.Info("Deleted product id: ", ctx.Params("id"))
-	return ctx.SendString("Deleted successfully")
+	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+		"Product deleted, id": id,
+	})
 }

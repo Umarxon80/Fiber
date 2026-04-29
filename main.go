@@ -34,8 +34,8 @@ func main() {
 		Expiration: 10 * time.Second,
 	})
 	// db connection
-	db.ConnectDb()
-	db.Migrate()
+	db.Connect()
+	defer db.DbConnection.Close()
 
 	// generating application
 	app := fiber.New(fiber.Config{AppName: "Fiber"})
@@ -107,10 +107,11 @@ func main() {
 	app.Get(healthcheck.StartupEndpoint, healthcheck.New())
 
 	// handlers
-	app.Get("/", compress.New(), cacheMiddleware, timeout.New(db.Get, timeout.Config{Timeout: 1 * time.Minute}))
-	app.Get("/:id", db.GetOne)
-	app.Post("/", auth.RequreAuth, db.Add)
-	app.Patch("/:id", auth.RequreAuth, db.Patch)
-	app.Delete("/:id", auth.RequreAuth, db.Delete)
+	app.Get("/", compress.New(), cacheMiddleware, timeout.New(db.GetProducts, timeout.Config{Timeout: 1 * time.Minute}))
+	app.Get("/:id", db.GetOneProduct)
+	app.Post("/", auth.RequreAuth, db.CreateProduct)
+	app.Patch("/:id", auth.RequreAuth, db.PatchProduct)
+	app.Delete("/:id", auth.RequreAuth, db.DeleteProduct)
 	log.Fatal(app.Listen(":8080"))
+	
 }
