@@ -2,27 +2,31 @@ package db
 
 import (
 	"context"
+	"time"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/log"
 )
 
 type Product struct {
-	Id      uint   `json:"id"`
-	Name    string `json:"name"`
-	Desc    string `json:"desc"`
-	Price   int    `json:"price"`
-	ExpDate string `json:"exp_date"`
+	Id         uint      `json:"id"`
+	Name       string    `json:"name"`
+	Desc       string    `json:"description"`
+	Price      int       `json:"price"  validate:"required"`
+	ExpDate    time.Time `json:"exp_date"`
+	Category   Category  `json:"category" validate:"omitempty"`
+	CategoryId uint      `json:"category_id"  validate:"required"`
 }
 
-func createProductTable() error {
+func createProductsTable() error {
 	_, err := DbConnection.Exec(context.Background(), `
-        CREATE TABLE IF NOT EXISTS product (
+        CREATE TABLE IF NOT EXISTS products (
             id       SERIAL PRIMARY KEY,
             name     TEXT           NOT NULL,
-            "description"     TEXT,
+            description    TEXT,
             price    NUMERIC(10, 2) NOT NULL,
-            exp_date DATE
+            exp_date DATE,
+			category_id INT REFERENCES categories(id) ON DELETE SET NULL
         )
     `)
 	return err
@@ -32,43 +36,44 @@ func createProductTable() error {
 
 func CreateProduct(ctx fiber.Ctx) error {
 	var newProd Product
+	var id uint
 	if err := ctx.Bind().Body(&newProd); err != nil {
 		log.Error("Wrong input", err)
 		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": err,
+			"error": err.Error(),
 		})
 	}
 	err := DbConnection.QueryRow(context.Background(), `
-		INSERT INTO product (name, description, price, exp_date)
-		VALUES ($1, $2, $3, $4)
-		RETURNING id, name, description, price, exp_date
-	`, newProd.Name, newProd.Desc, newProd.Price, newProd.ExpDate).Scan(&newProd.Id, &newProd.Name, &newProd.Desc, &newProd.Price, &newProd.ExpDate)
+		INSERT INTO products (name, description, price, exp_date,category_id)
+		VALUES ($1, $2, $3, $4, $5)
+		RETURNING id
+	`, newProd.Name, newProd.Desc, newProd.Price, newProd.ExpDate, newProd.CategoryId).Scan(&id)
 	if err != nil {
-		log.Error("Database error", err)
+		log.Error("Database error", err.Error())
 		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": err,
+			"error": err.Error(),
 		})
 	}
-	log.Info("New product crated id: ", newProd.Id)
-	return ctx.Status(fiber.StatusCreated).JSON(newProd)
+	log.Info("New product crated id: ", id)
+	return ctx.Status(fiber.StatusCreated).JSON(id)
 }
 func GetProducts(ctx fiber.Ctx) error {
 	var products []Product
 
-	rows, err := DbConnection.Query(context.Background(), `SELECT * FROM product`)
+	rows, err := DbConnection.Query(context.Background(), `SELECT p.id,p.name,p.description,p.price,p.exp_date,c.id,c.name,p.category_id FROM products p LEFT JOIN categories c on p.category_id=c.id`)
 	if err != nil {
 		log.Errorf("Error getting all products %v ", err)
 		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": err,
+			"error": err.Error(),
 		})
 	}
 	for rows.Next() {
 		var buff Product
-		err := rows.Scan(&buff.Id, &buff.Name, &buff.Desc, &buff.Price, &buff.ExpDate)
+		err := rows.Scan(&buff.Id, &buff.Name, &buff.Desc, &buff.Price, &buff.ExpDate, &buff.Category.Id, &buff.Category.Name, &buff.CategoryId)
 		if err != nil {
 			log.Errorf("Error getting all products %v ", err)
 			return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"error": err,
+				"error": err.Error(),
 			})
 		}
 		products = append(products, buff)
@@ -79,7 +84,7 @@ func GetProducts(ctx fiber.Ctx) error {
 func GetOneProduct(ctx fiber.Ctx) error {
 	id := ctx.Params("id")
 	var pr Product
-	if err := DbConnection.QueryRow(context.Background(), `SELECT * FROM product where id=$1`, id).Scan(&pr.Id, &pr.Name, &pr.Desc, &pr.Price, &pr.ExpDate); err != nil {
+	if err := DbConnection.QueryRow(context.Background(), `SELECT p.id,p.name,p.price,p.description,p.exp_date,c.id,c.name,p.category_id FROM products p LEFT JOIN categories c on p.category_id=c.id where p.id=$1`, id).Scan(&pr.Id, &pr.Name, &pr.Price, &pr.Desc, &pr.ExpDate, &pr.Category.Id, &pr.Category.Name, &pr.CategoryId); err != nil {
 		log.Errorf("Wrong input; %v", err)
 		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": err.Error(),
@@ -98,11 +103,11 @@ func PatchProduct(ctx fiber.Ctx) error {
 		})
 	}
 	efRows, err := DbConnection.Exec(context.Background(), `
-        UPDATE product 
-		set name=$1, description=$2, price=$3, exp_date=$4
-        WHERE id=$5
+        UPDATE products 
+		set name=$1, description=$2, price=$3, exp_date=$4, category_id=$5
+        WHERE id=$6
         RETURNING id, name, description, price, exp_date
-    `, product.Name, product.Desc, product.Price, product.ExpDate, id)
+    `, product.Name, product.Desc, product.Price, product.ExpDate, product.CategoryId, id)
 	if efRows.RowsAffected() < 1 {
 		log.Warn("Not found, id: ", id)
 		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -120,13 +125,13 @@ func PatchProduct(ctx fiber.Ctx) error {
 func DeleteProduct(ctx fiber.Ctx) error {
 	id := ctx.Params("id")
 	ct, err := DbConnection.Exec(context.Background(), `
-        DELETE FROM product 
+        DELETE FROM products
         WHERE id=$1
     `, id)
 	if err != nil {
-		log.Error("Error deleting product, ", err)
+		log.Error("Error deleting product, ", err.Error())
 		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": err,
+			"error": err.Error(),
 		})
 	}
 	if ct.RowsAffected() < 1 {

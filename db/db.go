@@ -20,7 +20,10 @@ func Connect() {
 	}
 
 	// Initiating tables
-	if err := createProductTable(); err != nil {
+	if err := createCategoriesTable(); err != nil {
+		log.Fatalf("Error creating categories table: %v", err)
+	}
+	if err := createProductsTable(); err != nil {
 		log.Fatalf("Error creating products table: %v", err)
 	}
 	if err := createUserTable(); err != nil {

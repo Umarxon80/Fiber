@@ -127,6 +127,13 @@ func main() {
 	userRouter.Patch("/:id", auth.RequreAuth, validation.ValidateUserInput, auth.HashPassword, timeout.New(db.PatchUser, timeout.Config{Timeout: 1 * time.Minute}))
 	userRouter.Delete("/:id", auth.RequreAuth, auth.RoleChecker([]string{"admin"}), timeout.New(db.DeleteUser, timeout.Config{Timeout: 1 * time.Minute}))
 
+	// Categories
+	categoriesRouter := app.Group("/categories")
+	categoriesRouter.Get("/", compress.New(), cacheMiddleware, timeout.New(db.GetCategories, timeout.Config{Timeout: 1 * time.Minute}))
+	categoriesRouter.Get("/:id", timeout.New(db.GetOneCategory, timeout.Config{Timeout: 1 * time.Minute}))
+	categoriesRouter.Post("/", auth.RequreAuth, validation.ValidateCategoryInput, timeout.New(db.CreateCategory, timeout.Config{Timeout: 1 * time.Minute}))
+	categoriesRouter.Patch("/:id", auth.RequreAuth, validation.ValidateCategoryInput, timeout.New(db.PatchCategory, timeout.Config{Timeout: 1 * time.Minute}))
+	categoriesRouter.Delete("/:id", auth.RequreAuth, auth.RoleChecker([]string{"admin"}), timeout.New(db.DeleteCategory, timeout.Config{Timeout: 1 * time.Minute}))
 	//Auth
 	userRouter.Post("/login", auth.LogIn)
 	userRouter.Post("/logout", auth.LogOut)

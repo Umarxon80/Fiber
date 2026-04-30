@@ -11,7 +11,7 @@ type User struct {
 	First_name   string `json:"first_name" validate:"required"`
 	Last_name    string `json:"last_name" validate:"required"`
 	Role         string `json:"role" default:"user"`
-	Email        string `json:"email" validate:"required,email"`
+	Email        string `json:"email" validate:"required,email,unique"`
 	Phone_number string `json:"phone_number"`
 	Age          uint8  `json:"age" validate:"gte=1,lte=120"`
 	Password     string `json:"password" validate:"required,min=8"`

@@ -14,6 +14,7 @@ func ValidateUserInput(ctx fiber.Ctx) error {
 		log.Error("Wrong input")
 		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "wrong input",
+			"err":err.Error(),
 		})
 	}
 
@@ -35,6 +36,31 @@ func ValidateProductInput(ctx fiber.Ctx) error {
 		log.Error("Wrong input")
 		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "wrong input",
+						"err":err.Error(),
+
+		})
+	}
+
+	val := validator.New(validator.WithRequiredStructEnabled())
+	if err := val.Struct(product); err != nil {
+		log.Error("Validation failed")
+		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	return ctx.Next()
+}
+
+func ValidateCategoryInput(ctx fiber.Ctx) error {
+	var product db.Category
+
+	if err := ctx.Bind().JSON(&product); err != nil {
+		log.Error("Wrong input")
+		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "wrong input",
+						"err":err.Error(),
+
 		})
 	}
 

@@ -1,7 +1,6 @@
 package auth
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/Umarxon80/Fiber.git/db"
@@ -21,7 +20,6 @@ func RequreAuth(ctx fiber.Ctx) error {
 		return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid token format"})
 	}
 	claims, err := checkToken(devidedAuth[1])
-	fmt.Print(devidedAuth[1])
 	if err != nil {
 		log.Error("No token provided")
 		return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "no token provided 2", "err": err.Error()})
