@@ -1,6 +1,7 @@
 package main
 
 import (
+	"os"
 	"time"
 
 	"github.com/Umarxon80/Fiber.git/auth"
@@ -24,12 +25,18 @@ import (
 	"github.com/gofiber/fiber/v3/middleware/responsetime"
 	"github.com/gofiber/fiber/v3/middleware/session"
 	"github.com/gofiber/fiber/v3/middleware/timeout"
+	"github.com/lpernett/godotenv"
 )
 
 func main() {
 	// logger set up
 	log.SetOutput(costomLogger.Logger())
 
+	// env
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loadinng env")
+	}
 	// caching
 	cacheMiddleware := cache.New(cache.Config{
 		Expiration: 10 * time.Second,
@@ -108,23 +115,23 @@ func main() {
 	productRouter := app.Group("/products")
 	productRouter.Get("/", compress.New(), cacheMiddleware, timeout.New(db.GetProducts, timeout.Config{Timeout: 1 * time.Minute}))
 	productRouter.Get("/:id", timeout.New(db.GetOneProduct, timeout.Config{Timeout: 1 * time.Minute}))
-	productRouter.Post("/", auth.RequreAuth,validation.ValidateProductInput, timeout.New(db.CreateProduct, timeout.Config{Timeout: 1 * time.Minute}))
-	productRouter.Patch("/:id", auth.RequreAuth,validation.ValidateProductInput, timeout.New(db.PatchProduct, timeout.Config{Timeout: 1 * time.Minute}))
-	productRouter.Delete("/:id", auth.RequreAuth,auth.RoleChecker([]string{"admin"}), timeout.New(db.DeleteProduct, timeout.Config{Timeout: 1 * time.Minute}))
+	productRouter.Post("/", auth.RequreAuth, validation.ValidateProductInput, timeout.New(db.CreateProduct, timeout.Config{Timeout: 1 * time.Minute}))
+	productRouter.Patch("/:id", auth.RequreAuth, validation.ValidateProductInput, timeout.New(db.PatchProduct, timeout.Config{Timeout: 1 * time.Minute}))
+	productRouter.Delete("/:id", auth.RequreAuth, auth.RoleChecker([]string{"admin"}), timeout.New(db.DeleteProduct, timeout.Config{Timeout: 1 * time.Minute}))
 
 	// Users
 	userRouter := app.Group("/users")
 	userRouter.Get("/", compress.New(), cacheMiddleware, timeout.New(db.GetUsers, timeout.Config{Timeout: 1 * time.Minute}))
 	userRouter.Get("/:id", timeout.New(db.GetOneUser, timeout.Config{Timeout: 1 * time.Minute}))
-	userRouter.Post("/",validation.ValidateUserInput, auth.HashPassword, timeout.New(db.CreateUser, timeout.Config{Timeout: 1 * time.Minute}))
-	userRouter.Patch("/:id", auth.RequreAuth,validation.ValidateUserInput, auth.HashPassword, timeout.New(db.PatchUser, timeout.Config{Timeout: 1 * time.Minute}))
-	userRouter.Delete("/:id", auth.RequreAuth,auth.RoleChecker([]string{"admin"}), timeout.New(db.DeleteUser, timeout.Config{Timeout: 1 * time.Minute}))
+	userRouter.Post("/", validation.ValidateUserInput, auth.HashPassword, timeout.New(db.CreateUser, timeout.Config{Timeout: 1 * time.Minute}))
+	userRouter.Patch("/:id", auth.RequreAuth, validation.ValidateUserInput, auth.HashPassword, timeout.New(db.PatchUser, timeout.Config{Timeout: 1 * time.Minute}))
+	userRouter.Delete("/:id", auth.RequreAuth, auth.RoleChecker([]string{"admin"}), timeout.New(db.DeleteUser, timeout.Config{Timeout: 1 * time.Minute}))
 
 	//Auth
 	userRouter.Post("/login", auth.LogIn)
 	userRouter.Post("/logout", auth.LogOut)
 
 	// Starting application
-	log.Fatal(app.Listen(":8080"))
+	log.Fatal(app.Listen(":" + os.Getenv("PORT")))
 
 }

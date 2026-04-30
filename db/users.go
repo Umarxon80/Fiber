@@ -10,7 +10,7 @@ type User struct {
 	Id           uint   `json:"id"`
 	First_name   string `json:"first_name" validate:"required"`
 	Last_name    string `json:"last_name" validate:"required"`
-	Role     string   `json:"role" default:"user"`
+	Role         string `json:"role" default:"user"`
 	Email        string `json:"email" validate:"required,email"`
 	Phone_number string `json:"phone_number"`
 	Age          uint8  `json:"age" validate:"gte=1,lte=120"`
@@ -52,7 +52,7 @@ func CreateUser(ctx fiber.Ctx) error {
 			"error": err,
 		})
 	}
-	user.Id=uint(id)
+	user.Id = uint(id)
 	log.Info("User created, id: ", id)
 	return ctx.Status(fiber.StatusCreated).JSON(user)
 }
@@ -90,7 +90,7 @@ func GetOneUser(ctx fiber.Ctx) error {
 	if err != nil {
 		log.Error("Error getting user, ", err)
 		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": err,
+			"error": err.Error(),
 		})
 	}
 	log.Info("Returning one user, id: ", id)
@@ -120,7 +120,7 @@ func PatchUser(ctx fiber.Ctx) error {
 	if err != nil {
 		log.Error("Error updating user, ", err)
 		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": err,
+			"error": err.Error(),
 		})
 	}
 	if ch.RowsAffected() < 1 {
@@ -131,7 +131,7 @@ func PatchUser(ctx fiber.Ctx) error {
 	}
 	log.Info("User updated, id: ", id)
 	return ctx.JSON(fiber.Map{
-		"Product updated, id: ": id,
+		"User updated, id: ": id,
 	})
 }
 func DeleteUser(ctx fiber.Ctx) error {
@@ -154,6 +154,6 @@ func DeleteUser(ctx fiber.Ctx) error {
 	}
 	log.Info("User deleted, id: ", id)
 	return ctx.JSON(fiber.Map{
-		"Product deleted, id: ": id,
+		"User deleted, id: ": id,
 	})
 }

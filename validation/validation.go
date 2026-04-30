@@ -6,6 +6,7 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/log"
 )
+
 func ValidateUserInput(ctx fiber.Ctx) error {
 	var user db.User
 

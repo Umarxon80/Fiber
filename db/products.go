@@ -82,7 +82,7 @@ func GetOneProduct(ctx fiber.Ctx) error {
 	if err := DbConnection.QueryRow(context.Background(), `SELECT * FROM product where id=$1`, id).Scan(&pr.Id, &pr.Name, &pr.Desc, &pr.Price, &pr.ExpDate); err != nil {
 		log.Errorf("Wrong input; %v", err)
 		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": err,
+			"error": err.Error(),
 		})
 	}
 	log.Info("Returning one product, id: ", pr.Id)

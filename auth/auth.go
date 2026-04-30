@@ -1,27 +1,33 @@
 package auth
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/Umarxon80/Fiber.git/db"
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/log"
-	"github.com/gofiber/fiber/v3/middleware/session"
 	"golang.org/x/crypto/bcrypt"
 )
 
 func RequreAuth(ctx fiber.Ctx) error {
-	sess := session.FromContext(ctx)
-	if sess == nil {
-		log.Error("Session expired")
-		return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
-			"error": "Session expired",
-		})
+	authHeader := ctx.Get("Authorization")
+	if authHeader == "" {
+		log.Error("No token provided")
+		return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "no token provided 1"})
 	}
-	if sess.Get("authenticated") != true {
-		log.Error("Session expired")
-		return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
-			"error": "Session expired",
-		})
+	devidedAuth := strings.SplitN(authHeader, " ", 2)
+	if len(devidedAuth) != 2 || devidedAuth[0] != "Bearer" {
+		return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid token format"})
 	}
+	claims, err := checkToken(devidedAuth[1])
+	fmt.Print(devidedAuth[1])
+	if err != nil {
+		log.Error("No token provided")
+		return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "no token provided 2", "err": err.Error()})
+	}
+	ctx.Locals("userid", claims["id"])
+	ctx.Locals("role", claims["role"])
 	return ctx.Next()
 }
 

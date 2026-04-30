@@ -1,0 +1,6 @@
+PORT=PORT
+DB_USERNAME=username
+DB_PASSWORD=password
+DB_HOST=host
+DB_PORT=db_port
+DB=db_name
